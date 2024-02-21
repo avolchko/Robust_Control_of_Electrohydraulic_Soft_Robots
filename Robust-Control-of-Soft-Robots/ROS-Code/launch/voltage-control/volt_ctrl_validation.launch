@@ -1,0 +1,99 @@
+<!--
+STTR Phase 2: Validation of Closed Loop Voltage Control: Response to Reference Step Input
+This launch file validates the performance of the voltage controller.
+The volt_profile node generates a reference voltage step profile.
+
+Specifically, the step profile it generates will be a step input form 2000 to 3000 V. 
+
+This data collection process is something we will want to clean up and add recording feature on teensy at 1000 Hz.
+
+includes: connection to mocap, keyboard, script for keyboard to mcu and connection to serial
+rosbag records mcu status (pwm ch/dr, 'filtered' voltage), mocap data, theta, and keyboard msgs and ref
+-->
+
+<launch>
+
+    <!-- connect to motion capture system -->
+     <include 
+	file="$(find mocap_optitrack)/launch/mocap.launch"
+     />
+
+    <!-- connect to keyboard input (rosrun [pkg] [type] [name]) can rename type with name -->
+    <node
+    pkg = "keyboard"  
+    type = "keyboard" 
+    name = "keyboard"
+    required = "true"
+    />
+
+    <!-- run voltage profile script -->
+    <node
+    pkg= "sttr_phase2"
+    type = "validate_volt_ctrl.py"
+    name = "validate_volt_ctrl"
+    required = "true"
+    />
+
+    <!-- run theta node script -->
+    <node
+    pkg= "sttr_phase2"
+    type = "mocap2theta.py"
+    name = "theta_node"
+    required = "true"
+    />
+
+    <!-- run tricep disp node script -->
+    <node
+    pkg= "sttr_phase2"
+    type = "mocap2disp_triceps.py"
+    name = "disp_node_triceps"
+    required = "true"
+    />
+
+    <!-- run disp node script -->
+    <node
+    pkg= "sttr_phase2"
+    type = "mocap2disp_biceps.py"
+    name = "disp_node_biceps"
+    required = "true"
+    />
+
+    <!-- run disp node script -->
+    <node
+    pkg= "sttr_phase2"
+    type = "record.py"
+    name = "record_node"
+    required = "true"
+    />
+    
+    <!-- write to mcu -->
+    <node
+    pkg= "rosserial_python"
+    type = "serial_node.py"
+    name = "serial_node"
+    required = "true"
+    >
+    <param name = "port" value = "/dev/ttyACM0"/>
+    <param name = "baud" value = "57600"/> 
+    </node>
+
+    <!-- Record Output Data - .../pose gives us mocap rigid body pose and mcu_status gives us pwm, total pwm and volt -->
+    <!-- /mocap_node/bicep_top/pose /mocap_node/bicep_bottom/pose /mocap_node/tricep_top/pose /mocap_node/tricep_bottom/pose  /mocap_node/lever_arm/pose" -->
+    <node
+    pkg = "rosbag"
+    type = "record"
+    name = "rosbag_sttr"
+    output = "screen"
+    required = "true"
+        args = "--buffsize 5000 -o /home/
+        /mcu_ref
+        /mcu_status
+        /theta
+        /ref
+        /disp
+        /disp_triceps
+        /recorded_data"
+    >
+    </node>
+
+</launch>

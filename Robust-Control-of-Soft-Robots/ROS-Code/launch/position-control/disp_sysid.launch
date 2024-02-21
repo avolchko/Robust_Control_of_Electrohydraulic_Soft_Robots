@@ -1,0 +1,112 @@
+<!--
+STTR Phase 2: Displacement System Identification
+This launch file identifies the motion of the actuators.
+The most updated voltage closed loop system control law should be in place.
+This code begins with a pretensioning function that ensures the biceps and 
+triceps actuators are engaged with one another. 
+The volt_profile_pretension node generates a voltage signal around these pretensioned voltages
+as the base voltages that uses random time intervals and magnitudes in both actuators, 
+one at a time to ensure the system remains in tensions. 
+The random voltage magnitudes and random time intervals both
+can be set below as voltage profile script parameters.
+The uncertainty analysis that is carried out will include 
+the nonlinearities that are apparent in the measurement function and not
+so much that are apparent in the dynamics of the system.
+
+This data collection process will be done at 200 (mcu) - 240 (mocap) Hz, 
+as the motion capture system is capped at 240 Hz and the dynamics of the 
+system are not expected to be greater than 20 Hz. 
+
+includes: connection to mocap, keyboard, script for keyboard to mcu and connection to serial
+rosbag records mcu status (pwm ch/dr, 'filtered' voltage), bicep disp, tricep disp, theta, record 
+volt reference, record mcu status, 
+-->
+
+
+<launch>
+
+    <!-- connect to motion capture system -->
+     <include 
+	file="$(find mocap_optitrack)/launch/mocap.launch"
+     />
+
+    <!-- connect to keyboard input (rosrun [pkg] [type] [name]) can rename type with name -->
+    <node
+    pkg = "keyboard"  
+    type = "keyboard" 
+    name = "keyboard"
+    required = "true"
+    />
+
+    <!-- write to mcu -->
+    <node
+    pkg= "rosserial_python"
+    type = "serial_node.py"
+    name = "serial_node"
+    required = "true"
+    >
+    <param name = "port" value = "/dev/ttyACM0"/>
+    <param name = "baud" value = "57600"/> 
+    </node>
+
+    <!-- run theta node script -->
+    <node
+    pkg= "sttr_phase2"
+    type = "mocap2theta.py"
+    name = "theta_node"
+    required = "true"
+    />
+
+    <!-- run tricep disp node script -->
+    <node
+    pkg= "sttr_phase2"
+    type = "mocap2disp_triceps.py"
+    name = "disp_node_triceps"
+    required = "true"
+    />
+
+    <!-- run disp node script -->
+    <node
+    pkg= "sttr_phase2"
+    type = "mocap2disp_biceps.py"
+    name = "disp_node_biceps"
+    required = "true"
+    />
+
+    <!-- pretensioning node -->
+    <node
+    pkg = "sttr_phase2"
+    type = "pretension.py" 
+    name = "pretension_node"
+    required = "true"
+    />
+
+
+    <!-- run voltage profile script -->
+    <node
+    pkg = "sttr_phase2"
+    type = "disp_sysid.py"
+    name = "disp_sysid_node"
+    required = "true"
+    />
+
+
+    <!-- record data to rosbag -->
+    <node
+    pkg = "rosbag"
+    type = "record"
+    name = "rosbag_sttr"
+    output = "screen"
+    required = "true"
+        args = "--buffsize 5000 -o /home/
+        /mcu_ref
+        /mcu_status
+        /theta
+        /ref
+        /disp
+        /disp_triceps
+        /cal_ref"
+    >
+    </node>
+
+</launch>

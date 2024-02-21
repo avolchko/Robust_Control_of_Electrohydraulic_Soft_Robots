@@ -1,0 +1,11 @@
+int16 chg1
+int16 chg2
+int16 dis1
+int16 dis2
+int16 volt1
+int16 volt2
+bool pol1
+bool pol2
+int16 hv
+int16 cap1
+int16 cap2

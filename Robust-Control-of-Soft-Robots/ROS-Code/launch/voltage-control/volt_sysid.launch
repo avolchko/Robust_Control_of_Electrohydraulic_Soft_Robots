@@ -1,0 +1,114 @@
+<!--
+STTR Phase 2: Voltage System Identification
+This launch file identifies the voltage dynamics.
+The volt_profile node generates a reference voltage profile for the mcu 
+with the most updated voltage closed loop system to follow.
+Specifically, it generates voltage profiles at various base voltage 
+levels for the uncertainty analysis that is carried out later.
+
+The random voltage magnitudes and random time intervals both
+can be set below as voltage profile script parameters.
+
+Note that the controllers were implemented in an iterative sense so that the 
+system would not be overworked and result in failure. 
+
+This data collection process is something we can clean up and add recording feature on teensy at 1000 Hz.
+
+includes: connection to mocap, keyboard, script for keyboard to mcu and connection to serial
+rosbag records mcu status (pwm ch/dr, 'filtered' voltage), mocap data, theta, and keyboard msgs and ref
+-->
+
+<launch>
+
+    <!-- connect to motion capture system -->
+     <include 
+	file="$(find mocap_optitrack)/launch/mocap.launch"
+     />
+
+    <!-- connect to keyboard input (rosrun [pkg] [type] [name]) can rename type with name -->
+    <node
+    pkg = "keyboard"  
+    type = "keyboard" 
+    name = "keyboard"
+    required = "true"
+    />
+
+    <!-- run voltage profile script -->
+    <node
+    pkg= "sttr_phase2"
+    type = "volt_profile.py"
+    name = "volt_profile"
+    required = "true"
+    />
+
+    <!-- run theta node script -->
+    <node
+    pkg= "sttr_phase2"
+    type = "mocap2theta.py"
+    name = "theta_node"
+    required = "true"
+    />
+
+    <!-- run tricep disp node script -->
+    <node
+    pkg= "sttr_phase2"
+    type = "mocap2disp_triceps.py"
+    name = "disp_node_triceps"
+    required = "true"
+    />
+
+    <!-- run disp node script -->
+    <node
+    pkg= "sttr_phase2"
+    type = "mocap2disp_biceps.py"
+    name = "disp_node_biceps"
+    required = "true"
+    />
+    
+    <!-- write to mcu -->
+    <node
+    pkg= "rosserial_python"
+    type = "serial_node.py"
+    name = "serial_node"
+    required = "true"
+    >
+    <param name = "port" value = "/dev/ttyACM0"/>
+    <param name = "baud" value = "57600"/> 
+    </node>
+
+    <!-- run disp node script -->
+    <node
+    pkg= "sttr_phase2"
+    type = "record.py"
+    name = "record_node"
+    required = "true"
+    />
+
+    <!-- run sysid node script -->
+    <node
+    pkg= "sttr_phase2"
+    type = "volt_sysid.py"
+    name = "sysid_node"
+    required = "true"
+    />
+
+    <!-- Record Output Data - .../pose gives us mocap rigid body pose and mcu_status gives us pwm, total pwm and volt -->
+    <!-- /mocap_node/bicep_top/pose /mocap_node/bicep_bottom/pose /mocap_node/tricep_top/pose /mocap_node/tricep_bottom/pose  /mocap_node/lever_arm/pose" -->
+    <node
+    pkg = "rosbag"
+    type = "record"
+    name = "rosbag_sttr"
+    output = "screen"
+    required = "true"
+        args = "--buffsize 5000 -o /home/
+        /mcu_ref
+        /mcu_status
+        /theta
+        /disp
+        /disp_triceps
+        /error
+        /recorded_data"
+    >
+    </node>
+
+</launch>

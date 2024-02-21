@@ -1,0 +1,127 @@
+<!--
+STTR Phase 2 : lqri ctrl of mimo system using a cascade control structure
+including an inner loop for the voltage and an outer loop for the displacement
+
+outer loop (ROS) uses discrete Kp Ki matrix and inner loop (MCU) uses a discrete z-transform lag controller
+
+includes: connection to mocap, keyboard, and serial (mcu) as well as a node for the
+reference generator, pretension function, reference converter, and displacement controller
+
+rosbag records mcu status (pwm ch/dr, voltage, cap), mocap data, theta, disps, keyboard msgs and reference data
+-->
+
+<launch>
+
+    <!-- connect to motion capture system -->
+     <include 
+	file="$(find mocap_optitrack)/launch/mocap.launch"
+     />
+
+    <!-- run theta node script -->
+    <node
+    pkg= "sttr_phase2"
+    type = "mocap2theta.py"
+    name = "theta_node"
+    required = "true"
+    />
+
+    <!-- run tricep disp node script -->
+    <node
+    pkg= "sttr_phase2"
+    type = "mocap2disp_triceps.py"
+    name = "disp_node_triceps"
+    required = "true"
+    />
+
+    <!-- run disp node script -->
+    <node
+    pkg= "sttr_phase2"
+    type = "mocap2disp_biceps.py"
+    name = "disp_node_biceps"
+    required = "true"
+    />
+
+
+    <!-- connect to keyboard input (rosrun [pkg] [type] [name]) can rename type with name -->
+    <node
+    pkg = "keyboard"  
+    type = "keyboard" 
+    name = "keyboard"
+    required = "true"
+    />
+
+    <!-- connect to mcu -->
+    <node
+    pkg= "rosserial_python"
+    type = "serial_node.py"
+    name = "serial_node"
+    required = "true"
+    >
+    <param name = "port" value = "/dev/ttyACM0"/>
+    <param name = "baud" value = "57600"/> 
+    </node>
+
+    <!-- theta reference generator -->
+    <!-- allows for trapezoidal triangular and rectangular waveforms  -->
+    <node
+    pkg= "sttr_phase2"
+    type = "orientationprofile.py"
+    name = "profile"
+    required = "true"
+    >
+    <!-- set profile parameters here -->
+    <param name = "peak" value = "5"/>
+    <param name = "half_time" value = "3"/>
+    <param name = "rise_time" value = "0.001"/>
+    <param name = "fall_time" value = "0.001"/>
+    </node>
+
+    <!-- reference converter -->
+    <node
+    pkg= "sttr_phase2"
+    type = "refconverter.py"
+    name = "refconverter"
+    required = "true"
+    />
+
+    <!-- displacement controller -->
+    <node
+    pkg = "sttr_phase2"
+    type = "HINF.py" 
+    name = "displacementcontroller_HINF"
+    required = "true"
+    />
+
+    <!-- pretensioning node -->
+    <node
+    pkg = "sttr_phase2"
+    type = "pretension.py" 
+    name = "pretension_node"
+    required = "true"
+    />
+
+
+    <!-- Record Output Data - .../pose gives us mocap rigid body pose and mcu_status gives us pwm, total pwm and volt -->
+    <!-- /mocap_node/bicep_top/pose /mocap_node/bicep_bottom/pose /mocap_node/tricep_top/pose /mocap_node/tricep_bottom/pose  /mocap_node/lever_arm/pose" -->
+    <node
+    pkg = "rosbag"
+    type = "record"
+    name = "rosbag_sttr"
+    output = "screen"
+    required = "true"
+        args = "--buffsize 5000 -o /home/
+        /mcu_ref 
+        /mcu_status
+        /theta_ref
+        /theta
+        /error
+        /disp_ref
+        /disp
+        /disp_triceps
+        /cal_ref
+        "
+        
+    >
+    </node>
+
+</launch>
